@@ -1,0 +1,23 @@
+{
+  "name": "xiaoxuesheng-shop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "create-image-dirs": "node scripts/create-image-dirs.js"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.10.0",
+    "element-plus": "^2.10.2",
+    "pinia": "^3.0.3",
+    "vue-router": "^4.5.1"
+  }
+}
