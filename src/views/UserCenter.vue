@@ -16,6 +16,7 @@
         <el-col :span="6"><el-card @click="goCoupons"><div>优惠券</div></el-card></el-col>
         <el-col :span="6"><el-card @click="goAddress"><div>收货地址</div></el-card></el-col>
         <el-col :span="6"><el-card @click="goNotifications"><div>消息通知</div></el-card></el-col>
+        <el-col :span="6"><el-card @click="goMyReviews"><div>我的评价</div></el-card></el-col>
       </el-row>
     </div>
     <el-divider />
@@ -31,16 +32,43 @@
         </el-col>
       </el-row>
     </div>
+    <div class="user-points-section" style="margin-bottom: 24px; flex-direction: column; align-items: flex-start;">
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div>等级：Lv{{ pointsInfo.level }}（下一级：Lv{{ pointsInfo.nextLevel }}）</div>
+        <div>积分：{{ pointsInfo.points }}</div>
+        <el-progress :percentage="Math.round(pointsInfo.progress * 100)" :text-inside="true" status="success" style="width: 180px;" />
+        <el-button size="small" @click="showPointsLog = true">积分明细</el-button>
+        <el-button size="small" type="success" @click="handleSignIn" :disabled="signedToday" plain>{{ signedToday ? '今日已签到' : '每日签到' }}</el-button>
+        <el-button size="small" type="warning" @click="goPointsShop" plain>积分商城</el-button>
+      </div>
+      <div class="points-rules">升级规则：每100积分升一级，最高10级。下单+10分，评价+5分，签到+2分。</div>
+    </div>
     <el-dialog v-model="showEdit" title="编辑个人信息" width="400px">
       <el-form :model="editForm">
         <el-form-item label="昵称"><el-input v-model="editForm.name" /></el-form-item>
         <el-form-item label="邮箱"><el-input v-model="editForm.email" /></el-form-item>
-        <el-form-item label="头像">
-          <el-radio-group v-model="editForm.avatar">
-            <el-radio-button v-for="img in avatarList" :key="img" :label="img">
-              <img :src="img" style="width:40px;height:40px;border-radius:50%" />
-            </el-radio-button>
+        <el-form-item label="性别">
+          <el-radio-group v-model="editForm.gender">
+            <el-radio :label="1">男</el-radio>
+            <el-radio :label="2">女</el-radio>
+            <el-radio :label="0">保密</el-radio>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label="生日">
+          <el-date-picker v-model="editForm.birthday" type="date" value-format="YYYY-MM-DD" style="width: 100%;" />
+        </el-form-item>
+        <el-form-item label="头像">
+          <el-upload
+            class="avatar-uploader"
+            :action="uploadUrl"
+            :show-file-list="false"
+            :on-success="handleAvatarSuccess"
+            :before-upload="beforeAvatarUpload"
+            :headers="uploadHeaders"
+          >
+            <img v-if="editForm.avatar" :src="editForm.avatar" class="avatar" />
+            <el-icon v-else><Plus /></el-icon>
+          </el-upload>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -48,13 +76,24 @@
         <el-button type="primary" @click="saveEdit">保存</el-button>
       </template>
     </el-dialog>
+    <el-dialog v-model="showPointsLog" title="积分明细" width="500px">
+      <el-table :data="pointsLog" style="width:100%">
+        <el-table-column prop="change" label="变动" width="80" />
+        <el-table-column prop="type" label="类型" width="100" />
+        <el-table-column prop="description" label="说明" />
+        <el-table-column prop="created_at" label="时间" width="160" />
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 <script setup lang="ts">
 import { useUserStore } from '../store/user'
 import { useRouter } from 'vue-router'
-import { computed, ref, watchEffect, onMounted } from 'vue'
+import { computed, ref, watchEffect, onMounted, watch } from 'vue'
 import { imageUtils } from '../utils/imageUtils'
+import { getUserProfile, updateUserProfile, getUserPoints, getUserPointsLog, signIn } from '../api/user'
+import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 const userStore = useUserStore()
 const router = useRouter()
 const isLogin = computed(() => userStore.isLogin)
@@ -62,17 +101,13 @@ const userInfo = computed(() => userStore.userInfo)
 const recommendProducts = computed(() => userStore.recommendProducts)
 const defaultAvatar = '/public/images/avatars/icons8-头像-50.png'
 const showEdit = ref(false)
-const editForm = ref({ name: '', email: '', avatar: defaultAvatar })
-const avatarList = [
-  '/public/images/avatars/icons8-头像-50.png',
-  '/public/images/avatars/icons8-头像-50-2.png',
-  '/public/images/avatars/icons8-头像-50-3.png',
-  '/public/images/avatars/icons8-头像-50-4.png',
-  '/public/images/avatars/icons8-女孩-50.png',
-  '/public/images/avatars/icons8-女孩-50-2.png',
-  '/public/images/avatars/icons8-男孩-50.png',
-  '/public/images/avatars/icons8-男孩-50-2.png',
-]
+const editForm = ref({ name: '', email: '', avatar: defaultAvatar, gender: 0, birthday: '' })
+const uploadUrl = 'http://localhost:3000/api/user/upload-avatar'
+const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+const pointsInfo = ref({ points: 0, level: 1, nextLevel: 2, nextLevelPoints: 200, progress: 0 })
+const showPointsLog = ref(false)
+const pointsLog = ref<Array<{ change: number; type: string; description: string; created_at: string }>>([])
+const signedToday = ref(false)
 function logout() { userStore.logout(); router.push('/login') }
 function goLogin() { router.push('/login') }
 function goOrders() { router.push('/orders') }
@@ -80,16 +115,44 @@ function goCoupons() { router.push('/coupons') }
 function goAddress() { router.push('/address') }
 function goNotifications() { router.push('/notifications') }
 function goProduct(id:number) { router.push(`/product/${id}`) }
-function saveEdit() {
+function handleAvatarSuccess(response: any) {
+  if (response.code === 0 && response.url) {
+    editForm.value.avatar = response.url
+    ElMessage.success('头像上传成功')
+  } else {
+    ElMessage.error('头像上传失败')
+  }
+}
+function beforeAvatarUpload(file: File) {
+  const isJPG = file.type === 'image/jpeg' || file.type === 'image/png'
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isJPG) ElMessage.error('只能上传 JPG/PNG 图片!')
+  if (!isLt2M) ElMessage.error('图片大小不能超过 2MB!')
+  return isJPG && isLt2M
+}
+async function saveEdit() {
   if (!userInfo.value) return
-  userStore.updateUserInfo({
-    id: userInfo.value.id,
-    type: userInfo.value.type,
-    name: editForm.value.name,
-    email: editForm.value.email,
-    avatar: editForm.value.avatar
-  })
-  showEdit.value = false
+  try {
+    await updateUserProfile({
+      name: editForm.value.name,
+      email: editForm.value.email,
+      avatar: editForm.value.avatar,
+      gender: editForm.value.gender,
+      birthday: editForm.value.birthday
+    })
+    userStore.updateUserInfo({
+      ...userInfo.value,
+      name: editForm.value.name,
+      email: editForm.value.email,
+      avatar: editForm.value.avatar,
+      gender: editForm.value.gender,
+      birthday: editForm.value.birthday
+    })
+    ElMessage.success('资料已更新')
+    showEdit.value = false
+  } catch (e) {
+    ElMessage.error('更新失败')
+  }
 }
 // 打开编辑时自动填充表单
 watchEffect(() => {
@@ -97,9 +160,22 @@ watchEffect(() => {
     editForm.value.name = userInfo.value.name
     editForm.value.email = userInfo.value.email
     editForm.value.avatar = userInfo.value.avatar || defaultAvatar
+    editForm.value.gender = userInfo.value.gender ?? 0
+    editForm.value.birthday = userInfo.value.birthday ?? ''
   }
 })
-onMounted(() => {
+onMounted(async () => {
+  // 拉取用户资料
+  if (isLogin.value) {
+    try {
+      const data = await getUserProfile()
+      if (data) {
+        userStore.updateUserInfo(data)
+      }
+    } catch (e) {
+      // 忽略
+    }
+  }
   // 模拟最近浏览和热销商品
   const allProducts = [
     { id: 1, title: 'Q版小熊猫手办', price: 59, img: imageUtils.getProductImage(1) },
@@ -116,7 +192,49 @@ onMounted(() => {
   const history = allProducts.slice(0, 3)
   userStore.generateRecommend(allProducts, history)
   userStore.loadNotifications()
+  try {
+    const res = await getUserPoints()
+    if (res && res.points !== undefined) pointsInfo.value = res
+  } catch {}
+  // 检查今日是否已签到
+  try {
+    const res: { code: number; msg: string; already: boolean } = await signIn()
+    if (res && res.code === 0 && res.already) signedToday.value = true
+  } catch {}
 })
+watch(showPointsLog, async (val) => {
+  if (val) {
+    try {
+      const res = await getUserPointsLog()
+      if (res && Array.isArray(res.data)) {
+        pointsLog.value = res.data
+      }
+    } catch {}
+  }
+})
+function goPointsShop() {
+  router.push('/points-shop')
+}
+async function handleSignIn() {
+  try {
+    const res: { code: number; msg: string; already: boolean } = await signIn()
+    if (res && res.code === 0) {
+      if (!res.already) {
+        ElMessage.success('签到成功，获得2积分！')
+        signedToday.value = true
+        // 刷新积分
+        const points = await getUserPoints()
+        if (points && points.points !== undefined) pointsInfo.value = points
+      } else {
+        ElMessage.info('今日已签到')
+        signedToday.value = true
+      }
+    }
+  } catch {
+    ElMessage.error('签到失败')
+  }
+}
+function goMyReviews() { router.push('/my-reviews') }
 </script>
 <style scoped>
 .user-center { max-width: 900px; margin: 0 auto; padding: 32px 0; }
@@ -130,4 +248,12 @@ onMounted(() => {
 .rec-img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; }
 .rec-title { font-weight: bold; margin-top: 8px; }
 .rec-reason { color: #999; font-size: 13px; }
+.avatar-uploader .avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: block;
+}
+.user-points-section { display: flex; align-items: center; gap: 16px; }
+.points-rules { color: #888; font-size: 13px; margin-top: 4px; }
 </style> 

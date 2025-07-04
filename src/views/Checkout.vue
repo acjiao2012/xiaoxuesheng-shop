@@ -133,8 +133,15 @@
         </el-input>
 
         <!-- 提交订单 -->
-        <el-button type="primary" size="large" class="submit-btn" @click="submitOrder">
-          提交订单
+        <el-button 
+          type="primary" 
+          size="large" 
+          class="submit-btn" 
+          @click="submitOrder"
+          :loading="submitting"
+          :disabled="submitting"
+        >
+          {{ submitting ? '提交中...' : '提交订单' }}
         </el-button>
       </div>
     </div>
@@ -142,8 +149,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useOrderStore } from '../store/order'
+import { useUserStore } from '../store/user'
 import { imageUtils } from '../utils/imageUtils'
+
+const router = useRouter()
+const orderStore = useOrderStore()
+const userStore = useUserStore()
 
 const shippingForm = ref({
   name: '',
@@ -157,25 +172,168 @@ const shippingForm = ref({
 const paymentMethod = ref('parent')
 const orderNote = ref('')
 const couponCode = ref('')
+const submitting = ref(false)
 
-const orderItems = ref([
-  { id: 1, title: 'Q版小熊猫手办', price: 59, img: imageUtils.getProductImage(1), count: 1, color: '绿色', size: '小' },
-  { id: 2, title: '魔法少女小樱', price: 89, img: imageUtils.getProductImage(2), count: 2, color: '粉色', size: '中' },
-])
+// 从购物车获取商品数据
+const orderItems = ref<CartItem[]>([])
+
+// 初始化时从localStorage获取购物车数据
+onMounted(() => {
+  const cartData = localStorage.getItem('cartItems')
+  if (cartData) {
+    try {
+      const cartItems = JSON.parse(cartData)
+      if (Array.isArray(cartItems) && cartItems.length > 0) {
+        orderItems.value = cartItems
+      } else {
+        // 如果没有购物车数据，使用默认数据
+        orderItems.value = [
+          { id: 1, productId: 1, title: 'Q版小熊猫手办', price: 59, img: imageUtils.getProductImage(1), count: 1, color: '绿色', size: '小' },
+          { id: 2, productId: 2, title: '魔法少女小樱', price: 89, img: imageUtils.getProductImage(2), count: 2, color: '粉色', size: '中' },
+        ]
+      }
+    } catch (error) {
+      console.error('解析购物车数据失败:', error)
+      // 使用默认数据
+      orderItems.value = [
+        { id: 1, productId: 1, title: 'Q版小熊猫手办', price: 59, img: imageUtils.getProductImage(1), count: 1, color: '绿色', size: '小' },
+        { id: 2, productId: 2, title: '魔法少女小樱', price: 89, img: imageUtils.getProductImage(2), count: 2, color: '粉色', size: '中' },
+      ]
+    }
+  } else {
+    // 使用默认数据
+    orderItems.value = [
+      { id: 1, productId: 1, title: 'Q版小熊猫手办', price: 59, img: imageUtils.getProductImage(1), count: 1, color: '绿色', size: '小' },
+      { id: 2, productId: 2, title: '魔法少女小樱', price: 89, img: imageUtils.getProductImage(2), count: 2, color: '粉色', size: '中' },
+    ]
+  }
+})
 
 const subtotal = computed(() => orderItems.value.reduce((sum, item) => sum + item.price * item.count, 0).toFixed(2))
 const shipping = ref(10)
 const discount = ref(0)
 const totalAmount = computed(() => (parseFloat(subtotal.value) + shipping.value - discount.value).toFixed(2))
 
-function submitOrder() {
-  // 这里可以添加表单验证和提交逻辑
-  console.log('提交订单', {
-    shippingForm: shippingForm.value,
-    paymentMethod: paymentMethod.value,
-    orderNote: orderNote.value,
-    totalAmount: totalAmount.value
-  })
+// 表单验证
+function validateForm() {
+  if (!shippingForm.value.name.trim()) {
+    ElMessage.error('请输入收货人姓名')
+    return false
+  }
+  if (!shippingForm.value.phone.trim()) {
+    ElMessage.error('请输入联系电话')
+    return false
+  }
+  if (!/^1[3-9]\d{9}$/.test(shippingForm.value.phone)) {
+    ElMessage.error('请输入正确的手机号码')
+    return false
+  }
+  if (!shippingForm.value.province.trim()) {
+    ElMessage.error('请选择省份')
+    return false
+  }
+  if (!shippingForm.value.city.trim()) {
+    ElMessage.error('请选择城市')
+    return false
+  }
+  if (!shippingForm.value.address.trim()) {
+    ElMessage.error('请输入详细地址')
+    return false
+  }
+  return true
+}
+
+// 生成订单号
+function generateOrderId() {
+  const timestamp = Date.now()
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+  return `ORDER${timestamp}${random}`
+}
+
+// 创建订单对象
+function createOrder() {
+  const orderId = generateOrderId()
+  const now = new Date().toISOString()
+  
+  const order: Order = {
+    id: orderId,
+    status: 'pending',
+    total: parseFloat(totalAmount.value),
+    items: orderItems.value.map(item => ({
+      ...item,
+      productId: item.id,
+      reviewed: false
+    })),
+    createdAt: now,
+    updatedAt: now,
+    paymentMethod: paymentMethod.value as 'alipay' | 'wechat' | 'balance',
+    reviewed: false,
+    address: {
+      id: Date.now().toString(),
+      name: shippingForm.value.name,
+      phone: shippingForm.value.phone,
+      province: shippingForm.value.province,
+      city: shippingForm.value.city,
+      detail: shippingForm.value.address,
+      fullAddress: `${shippingForm.value.province}${shippingForm.value.city}${shippingForm.value.address}`,
+      isDefault: false
+    }
+  }
+  
+  return order
+}
+
+async function submitOrder() {
+  // 检查用户登录状态
+  if (!userStore.isLogin) {
+    ElMessageBox.confirm('请先登录后再下单', '提示', {
+      confirmButtonText: '去登录',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }).then(() => {
+      router.push('/login')
+    })
+    return
+  }
+
+  // 表单验证
+  if (!validateForm()) {
+    return
+  }
+
+  // 检查余额（如果选择余额支付）
+  if (paymentMethod.value === 'balance') {
+    const userBalance = userStore.userInfo?.balance || 0
+    if (userBalance < parseFloat(totalAmount.value)) {
+      ElMessage.error('余额不足，请选择其他支付方式')
+      return
+    }
+  }
+
+  submitting.value = true
+
+  try {
+    // 创建订单
+    const order = createOrder()
+    
+    // 保存订单到store
+    orderStore.addOrder(order)
+    
+    // 清空购物车（这里可以添加清空购物车的逻辑）
+    // cartStore.clearCart()
+    
+    // 显示成功消息
+    ElMessage.success('订单创建成功！')
+    
+    // 跳转到支付页面
+    router.push(`/payment/${order.id}`)
+    
+  } catch (error) {
+    console.error('提交订单失败:', error)
+    ElMessage.error('提交订单失败，请重试')
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 

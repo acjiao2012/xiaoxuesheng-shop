@@ -74,8 +74,8 @@ import { imageUtils } from '../utils/imageUtils'
 const router = useRouter()
 
 const defaultCart = [
-  { id: 1, title: 'Q版小熊猫手办', price: 59, img: imageUtils.getProductImage(1), count: 1, color: '绿色', size: '小' },
-  { id: 2, title: '魔法少女小樱', price: 89, img: imageUtils.getProductImage(2), count: 2, color: '粉色', size: '中' },
+  { id: 1, productId: 1, title: 'Q版小熊猫手办', price: 59, img: imageUtils.getProductImage(1), count: 1, color: '绿色', size: '小' },
+  { id: 2, productId: 2, title: '魔法少女小樱', price: 89, img: imageUtils.getProductImage(2), count: 2, color: '粉色', size: '中' },
 ]
 
 const cartItems = ref(JSON.parse(localStorage.getItem('cartItems') || 'null') || defaultCart)

@@ -19,7 +19,7 @@ const errorMessages = {
 }
 
 // 错误处理函数
-export function handleError(error: any, type: ErrorType = ErrorType.UNKNOWN) {
+export function handleError(error: unknown, type: ErrorType = ErrorType.UNKNOWN) {
   console.error('Error occurred:', error)
   
   // 根据错误类型显示不同的消息
@@ -38,11 +38,12 @@ export function handleError(error: any, type: ErrorType = ErrorType.UNKNOWN) {
 }
 
 // API错误处理
-export function handleApiError(error: any) {
-  if (error.response) {
-    // 服务器响应错误
-    const status = error.response.status
-    const message = error.response.data?.message || '请求失败'
+export function handleApiError(error: unknown) {
+  // 类型守卫检查
+  if (error && typeof error === 'object' && 'response' in error) {
+    const apiError = error as { response: { status: number; data?: { message?: string } } }
+    const status = apiError.response.status
+    const message = apiError.response.data?.message || '请求失败'
     
     switch (status) {
       case 401:
@@ -57,7 +58,7 @@ export function handleApiError(error: any) {
       default:
         ElMessage.error(message)
     }
-  } else if (error.request) {
+  } else if (error && typeof error === 'object' && 'request' in error) {
     // 网络错误
     handleError(error, ErrorType.NETWORK)
   } else {
@@ -67,7 +68,7 @@ export function handleApiError(error: any) {
 }
 
 // 表单验证错误处理
-export function handleValidationError(errors: any) {
+export function handleValidationError(errors: Record<string, unknown>) {
   const errorMessages = Object.values(errors).flat()
   if (errorMessages.length > 0) {
     ElMessage.error(errorMessages[0] as string)
@@ -97,7 +98,7 @@ export function handleImageError(event: Event, fallbackSrc: string = '/placehold
 }
 
 // 路由错误处理
-export function handleRouteError(error: any) {
+export function handleRouteError(error: unknown) {
   console.error('Route error:', error)
   ElMessage.error('页面跳转失败，请重试')
 }

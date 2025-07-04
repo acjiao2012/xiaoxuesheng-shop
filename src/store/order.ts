@@ -40,7 +40,7 @@ export const useOrderStore = defineStore('order', {
             createdAt: new Date().toLocaleString()
           } as AppNotification)
         }
-        if (order.status === 'completed') {
+        if (order.status === 'delivered') {
           userStore.addNotification({
             id: Date.now() + '-done',
             type: 'order',
@@ -52,11 +52,11 @@ export const useOrderStore = defineStore('order', {
         }
       }
       // 物流节点变动
-      if (order.logistics && old.logistics) {
-        const oldLen = old.logistics.traces.length
-        const newLen = order.logistics.traces.length
+      if (order.logistics && old.logistics && order.logistics.trackingInfo && old.logistics.trackingInfo) {
+        const oldLen = old.logistics.trackingInfo.length
+        const newLen = order.logistics.trackingInfo.length
         if (newLen > oldLen) {
-          const lastTrace = order.logistics.traces[newLen-1]
+          const lastTrace = order.logistics.trackingInfo[newLen-1]
           userStore.addNotification({
             id: Date.now() + '-trace',
             type: 'logistics',

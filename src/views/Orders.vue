@@ -22,11 +22,19 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ref } from 'vue'
-import { imageUtils } from '../utils/imageUtils'
+import { ref, onMounted } from 'vue'
+import { useOrderStore } from '../store/order'
+// import { imageUtils } from '../utils/imageUtils'
 
 const router = useRouter()
-const orders = ref(JSON.parse(localStorage.getItem('orders')||'[]'))
+const orderStore = useOrderStore()
+const orders = ref<Order[]>([])
+
+onMounted(() => {
+  // 从store加载订单数据
+  orderStore.loadOrders()
+  orders.value = orderStore.orders
+})
 
 function goDetail(id:string) { router.push(`/order/${id}`) }
 

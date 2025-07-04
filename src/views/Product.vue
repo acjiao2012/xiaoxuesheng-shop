@@ -106,13 +106,37 @@
         
         <el-tab-pane label="用户评价" name="reviews">
           <div class="reviews-content">
-            <div class="review-item" v-for="review in product.reviews" :key="review.id">
+            <div class="reviews-header">
+              <div class="reviews-summary">
+                <div class="rating-overview">
+                  <div class="rating-score">{{ getAverageRating() }}</div>
+                  <div class="rating-label">综合评分</div>
+                </div>
+                <div class="review-count">{{ product.reviews.length }}条评价</div>
+              </div>
+              <el-button type="primary" @click="viewAllReviews">查看全部评价</el-button>
+            </div>
+            
+            <div class="review-item" v-for="review in product.reviews.slice(0, 3)" :key="review.id">
               <div class="review-header">
                 <span class="reviewer-name">{{ review.name }}</span>
                 <el-rate v-model="review.rating" disabled />
                 <span class="review-date">{{ review.date }}</span>
               </div>
               <div class="review-content">{{ review.content }}</div>
+              <div v-if="review.reply" class="review-reply">
+                <el-alert type="info" :closable="false" show-icon>
+                  <template #title>
+                    <b>商家回复：</b>{{ review.reply }}
+                  </template>
+                </el-alert>
+              </div>
+            </div>
+            
+            <div v-if="product.reviews.length > 3" class="more-reviews">
+              <el-button type="text" @click="viewAllReviews">
+                查看更多评价 ({{ product.reviews.length - 3 }}条)
+              </el-button>
             </div>
           </div>
         </el-tab-pane>
@@ -165,14 +189,16 @@ const product = computed(() => {
           name: '小明妈妈',
           rating: 5,
           date: '2024-01-15',
-          content: '孩子很喜欢这个小熊猫，做工很精致，包装也很漂亮！'
+          content: '孩子很喜欢这个小熊猫，做工很精致，包装也很漂亮！',
+          reply: '感谢您的支持，欢迎再次购买！'
         },
         {
           id: 2,
           name: '手办爱好者',
           rating: 4,
           date: '2024-01-10',
-          content: '质量不错，造型可爱，值得收藏。'
+          content: '质量不错，造型可爱，值得收藏。',
+          reply: '感谢您的反馈，我们会继续努力！'
         }
       ]
     },
@@ -323,6 +349,17 @@ function handleImageError(event: Event) {
   const img = event.target as HTMLImageElement
   img.src = DEFAULT_IMAGES.PRODUCT
   console.warn('Product image failed to load:', img.src)
+}
+
+// 查看全部评价
+function getAverageRating(): number {
+  if (product.value.reviews.length === 0) return 4.5
+  const totalRating = product.value.reviews.reduce((sum, review) => sum + review.rating, 0)
+  return Math.round((totalRating / product.value.reviews.length) * 10) / 10
+}
+
+function viewAllReviews() {
+  router.push(`/reviews/${productId.value}`)
 }
 
 // 添加到购物车
@@ -546,6 +583,42 @@ onMounted(() => {
   padding: var(--spacing-xl);
 }
 
+.reviews-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.reviews-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.rating-overview {
+  text-align: center;
+}
+
+.rating-score {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--warning-dark);
+  margin-bottom: var(--spacing-xs);
+}
+
+.rating-label {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.review-count {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
 .review-item {
   padding: var(--spacing-lg) 0;
   border-bottom: 1px solid var(--border-color);
@@ -571,6 +644,15 @@ onMounted(() => {
 .review-content {
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+.review-reply {
+  margin-top: var(--spacing-md);
+}
+
+.more-reviews {
+  text-align: center;
+  padding: var(--spacing-lg) 0;
 }
 
 @media (max-width: 768px) {

@@ -15,6 +15,17 @@ const routes = [
   { path: '/notifications', name: 'Notifications', component: () => import('../views/Notifications.vue') },
   { path: '/address', name: 'AddressList', component: () => import('../views/AddressList.vue') },
   { path: '/order/:id', name: 'OrderDetail', component: () => import('../views/OrderDetail.vue') },
+  { path: '/payment/:orderId', name: 'Payment', component: () => import('../views/Payment.vue') },
+  { path: '/logistics/:orderId', name: 'Logistics', component: () => import('../views/Logistics.vue') },
+  { path: '/review/:productId/:orderId', name: 'Review', component: () => import('../views/Review.vue') },
+  { path: '/reviews/:productId', name: 'ProductReviews', component: () => import('../views/ProductReviews.vue') },
+  { path: '/api-test', name: 'ApiTest', component: () => import('../views/ApiTest.vue') },
+  { path: '/payment-test', name: 'PaymentTest', component: () => import('../views/PaymentTest.vue') },
+  { path: '/simple-payment-test', name: 'SimplePaymentTest', component: () => import('../views/SimplePaymentTest.vue') },
+  { path: '/debug-payment', name: 'DebugPayment', component: () => import('../views/DebugPayment.vue') },
+  { path: '/points-shop', name: 'PointsShop', component: () => import('../views/PointsShop.vue') },
+  { path: '/my-reviews', name: 'MyReviews', component: () => import('../views/MyReviews.vue') },
+  { path: '/admin/review-reply', name: 'AdminReviewReply', component: () => import('../views/AdminReviewReply.vue') },
 ]
 
 const router = createRouter({

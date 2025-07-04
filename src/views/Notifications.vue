@@ -12,11 +12,26 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useUserStore } from '../store/user'
-const userStore = useUserStore()
-const notifications = computed(() => userStore.notifications)
-function markRead(id:string) { userStore.markNotificationRead(id) }
+import { ref, onMounted } from 'vue'
+import { getNotifications, markNotificationRead } from '../api/user'
+import { ElMessage } from 'element-plus'
+const notifications = ref<AppNotification[]>([])
+async function loadNotifications() {
+  try {
+    notifications.value = await getNotifications()
+  } catch {
+    ElMessage.error('获取消息失败')
+  }
+}
+onMounted(loadNotifications)
+async function markRead(id: string) {
+  try {
+    await markNotificationRead(id)
+    notifications.value = notifications.value.map(n => n.id === id ? { ...n, read: true } : n)
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
 </script>
 <style scoped>
 .notifications-page { max-width: 700px; margin: 0 auto; padding: 32px 0; }

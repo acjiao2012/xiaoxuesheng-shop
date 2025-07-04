@@ -33,7 +33,7 @@ declare module '*.svg' {
 
 // 全局类型定义
 interface Window {
-  __VUE_APP__: any
+  __VUE_APP__: unknown
 }
 
 // API 响应类型
@@ -50,6 +50,9 @@ interface User {
   email: string
   type: 'student' | 'parent'
   avatar?: string
+  balance?: number
+  gender?: number // 0保密 1男 2女
+  birthday?: string // YYYY-MM-DD
 }
 
 // 商品类型
@@ -61,6 +64,8 @@ interface Product {
   description?: string
   category?: string
   stock?: number
+  rating?: number
+  reviewCount?: number
 }
 
 // 购物车项类型
@@ -78,12 +83,21 @@ interface CartItem {
 // 订单类型
 interface Order {
   id: string
-  status: 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled'
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled'
   total: number
-  items: CartItem[]
+  items: OrderItem[]
   createdAt: string
   updatedAt: string
   logistics?: Logistics
+  paymentMethod?: 'alipay' | 'wechat' | 'balance'
+  reviewed?: boolean
+  address?: Address
+}
+
+// 订单项类型
+interface OrderItem extends CartItem {
+  reviewed?: boolean
+  image?: string
 }
 
 // 分页类型
@@ -114,13 +128,69 @@ declare interface Coupon {
 
 // 物流信息类型
 declare interface Logistics {
+  id: string
   company: string
+  companyCode: string
   trackingNumber: string
+  status: 'pending' | 'shipped' | 'delivered' | 'returned'
+  createdAt: string
+  trackingInfo: LogisticsTrace[]
+}
+
+// 物流轨迹类型
+declare interface LogisticsTrace {
+  time: string
+  location: string
   status: string
-  traces: Array<{
-    time: string
-    status: string
-  }>
+  description: string
+}
+
+// 支付信息类型
+declare interface Payment {
+  id: string
+  orderId: string
+  paymentNo: string
+  amount: number
+  paymentMethod: 'alipay' | 'wechat' | 'balance'
+  status: 'pending' | 'success' | 'failed'
+  createdAt: string
+  paidAt?: string
+}
+
+// 支付数据类型
+declare interface PaymentData {
+  paymentUrl?: string
+  qrCode?: string
+  paymentNo: string
+  amount: number
+  success?: boolean
+  message?: string
+}
+
+// 评价类型
+declare interface Review {
+  id: string
+  userId: string
+  productId: string
+  orderId: string
+  rating: number
+  content: string
+  images: string[]
+  tags: string[]
+  anonymous: boolean
+  createdAt: string
+  userName?: string
+  userAvatar?: string
+  reply?: string
+}
+
+// 评价统计类型
+declare interface ReviewStats {
+  avgRating: number
+  totalCount: number
+  ratingDistribution: {
+    [key: number]: number
+  }
 }
 
 // 消息通知类型
@@ -140,9 +210,10 @@ declare interface Address {
   phone: string
   province: string
   city: string
-  area?: string
-  detail: string
-  isDefault: boolean
+  district: string // 区县
+  detail_address: string // 详细地址
+  is_default: boolean
+  created_at: string
 }
 
 // 推荐商品类型
